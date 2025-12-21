@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BATTLE FORCE - Zombie Shooter</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Game Container -->
+    <div id="game-container"></div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <!-- Crosshair -->
+        <div id="crosshair">
+            <div class="crosshair-line horizontal"></div>
+            <div class="crosshair-line vertical"></div>
+            <div class="crosshair-dot"></div>
+        </div>
+
+        <!-- Health Bar -->
+        <div id="health-container">
+            <div class="hud-label">HEALTH</div>
+            <div id="health-bar-bg">
+                <div id="health-bar"></div>
+            </div>
+            <div id="health-text">100</div>
+        </div>
+
+        <!-- Ammo Counter -->
+        <div id="ammo-container">
+            <div id="ammo-current">30</div>
+            <div class="ammo-separator">/</div>
+            <div id="ammo-reserve">120</div>
+        </div>
+
+        <!-- Wave Info -->
+        <div id="wave-info">
+            <div class="wave-label">WAVE</div>
+            <div id="wave-number">1</div>
+            <div id="zombies-remaining">Kill 10 zombies</div>
+        </div>
+
+        <!-- Kill Counter -->
+        <div id="kill-counter">
+            <span class="kill-label">KILLS:</span>
+            <span id="kill-count">0</span>
+        </div>
+
+        <!-- Damage Indicator -->
+        <div id="damage-indicator"></div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="hidden">
+            <h1>GAME OVER</h1>
+            <div class="stats">
+                <p>Wave Reached: <span id="final-wave">1</span></p>
+                <p>Total Kills: <span id="final-kills">0</span></p>
+                <p>Survival Time: <span id="survival-time">0:00</span></p>
+            </div>
+            <button id="restart-btn">RESTART</button>
+        </div>
+
+        <!-- Wave Complete -->
+        <div id="wave-complete" class="hidden">
+            <h2>WAVE COMPLETE!</h2>
+            <p>Next wave in <span id="wave-countdown">5</span>...</p>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen">
+        <h1>BATTLE FORCE</h1>
+        <h2>Zombie Survival Shooter</h2>
+        <div class="game-description">
+            <p>Survive endless waves of zombies!</p>
+            <p>Professional 3D graphics with Three.js</p>
+        </div>
+        <div class="controls-info">
+            <h3>CONTROLS</h3>
+            <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> - Move</p>
+            <p><kbd>Mouse</kbd> - Aim</p>
+            <p><kbd>Left Click</kbd> - Shoot</p>
+            <p><kbd>R</kbd> - Reload</p>
+            <p><kbd>ESC</kbd> - Pause</p>
+        </div>
+        <button id="start-btn">START GAME</button>
+        <div class="credits">
+            <p>Ahmed Mesbah Ahmed & Ziad Ahmed Al-Junadi</p>
+            <p>Computer Graphics Fall 2025/2026</p>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading Battle Force...</p>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Game Script -->
+    <script src="js/game.js"></script>
+</body>
+
+</html>

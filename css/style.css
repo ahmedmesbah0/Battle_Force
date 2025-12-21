@@ -1,0 +1,479 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+    background: #000;
+}
+
+#game-container {
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas {
+    display: block;
+}
+
+/* HUD */
+#hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Crosshair */
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+}
+
+.crosshair-line {
+    position: absolute;
+    background: rgba(0, 255, 0, 0.8);
+}
+
+.crosshair-line.horizontal {
+    width: 20px;
+    height: 2px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.crosshair-line.vertical {
+    width: 2px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.crosshair-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 0, 0, 0.9);
+    border-radius: 50%;
+}
+
+/* Health Bar */
+#health-container {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    min-width: 300px;
+}
+
+.hud-label {
+    color: #00ff00;
+    font-size: 14px;
+    margin-bottom: 5px;
+    letter-spacing: 2px;
+    font-weight: bold;
+}
+
+#health-bar-bg {
+    width: 100%;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #00ff00;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+#health-bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #ff0000 0%, #ffff00 50%, #00ff00 100%);
+    transition: width 0.3s ease;
+}
+
+#health-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    text-shadow: 2px 2px 4px #000;
+}
+
+/* Ammo Counter */
+#ammo-container {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 48px;
+    color: #fff;
+    text-shadow: 3px 3px 6px #000;
+    font-weight: bold;
+}
+
+#ammo-current {
+    font-size: 64px;
+    color: #00ff00;
+}
+
+#ammo-current.low {
+    color: #ff0000;
+    animation: pulse 0.5s infinite;
+}
+
+.ammo-separator {
+    font-size: 32px;
+    color: #666;
+}
+
+#ammo-reserve {
+    font-size: 32px;
+    color: #999;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Wave Info */
+#wave-info {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 15px 30px;
+    border: 2px solid #00ff00;
+    border-radius: 8px;
+}
+
+.wave-label {
+    font-size: 14px;
+    color: #00ff00;
+    letter-spacing: 3px;
+    font-weight: bold;
+}
+
+#wave-number {
+    font-size: 48px;
+    color: #fff;
+    line-height: 1;
+    margin: 5px 0;
+    font-weight: bold;
+}
+
+#zombies-remaining {
+    font-size: 16px;
+    color: #ff6b6b;
+    margin-top: 5px;
+}
+
+/* Kill Counter */
+#kill-counter {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    font-size: 24px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border: 2px solid #ff0000;
+    border-radius: 8px;
+}
+
+.kill-label {
+    color: #ff6b6b;
+    margin-right: 10px;
+}
+
+#kill-count {
+    font-size: 32px;
+    color: #ff0000;
+    font-weight: bold;
+}
+
+/* Damage Indicator */
+#damage-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, transparent 30%, rgba(255, 0, 0, 0.3) 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+#damage-indicator.active {
+    opacity: 1;
+}
+
+/* Game Over Screen */
+#gameover-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: all;
+}
+
+#gameover-screen h1 {
+    font-size: 80px;
+    color: #ff0000;
+    text-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+    margin-bottom: 40px;
+}
+
+#gameover-screen .stats {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 30px 60px;
+    border-radius: 12px;
+    margin-bottom: 40px;
+}
+
+#gameover-screen .stats p {
+    font-size: 24px;
+    color: #fff;
+    margin: 15px 0;
+}
+
+#gameover-screen .stats span {
+    color: #00ff00;
+    font-size: 32px;
+    margin-left: 20px;
+    font-weight: bold;
+}
+
+/* Wave Complete */
+#wave-complete {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 255, 0, 0.95);
+    padding: 40px 80px;
+    border-radius: 16px;
+    text-align: center;
+    pointer-events: all;
+}
+
+#wave-complete h2 {
+    font-size: 48px;
+    color: #000;
+    margin-bottom: 20px;
+}
+
+#wave-complete p {
+    font-size: 24px;
+    color: #000;
+}
+
+#wave-countdown {
+    font-size: 48px;
+    font-weight: 900;
+}
+
+/* Start Screen */
+#start-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a1a 0%, #000 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    color: #fff;
+    text-align: center;
+    pointer-events: all;
+}
+
+#start-screen h1 {
+    font-size: 96px;
+    color: #ff0000;
+    text-shadow: 0 0 40px rgba(255, 0, 0, 0.8);
+    margin-bottom: 10px;
+    letter-spacing: 8px;
+}
+
+#start-screen h2 {
+    font-size: 36px;
+    color: #00ff00;
+    margin-bottom: 40px;
+    letter-spacing: 4px;
+}
+
+.game-description {
+    max-width: 600px;
+    margin-bottom: 50px;
+}
+
+.game-description p {
+    font-size: 20px;
+    margin: 10px 0;
+    color: #ccc;
+}
+
+.controls-info {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 30px 50px;
+    border-radius: 12px;
+    margin-bottom: 50px;
+    border: 2px solid rgba(0, 255, 0, 0.3);
+}
+
+.controls-info h3 {
+    font-size: 28px;
+    color: #00ff00;
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+}
+
+.controls-info p {
+    font-size: 18px;
+    margin: 12px 0;
+}
+
+kbd {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 0 4px;
+    background: rgba(0, 255, 0, 0.2);
+    border: 2px solid #00ff00;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.credits {
+    margin-top: 40px;
+    font-size: 14px;
+    opacity: 0.6;
+}
+
+.credits p {
+    margin: 5px 0;
+}
+
+/* Buttons */
+button {
+    padding: 20px 60px;
+    font-size: 28px;
+    font-weight: 900;
+    color: #000;
+    background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%);
+    border: 3px solid #00ff00;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+    pointer-events: all;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+
+button:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 5px 40px rgba(0, 255, 0, 0.7);
+}
+
+button:active {
+    transform: translateY(0) scale(1);
+}
+
+#gameover-screen button {
+    background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+    border-color: #ff0000;
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+}
+
+/* Loading Screen */
+#loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    color: #00ff00;
+    transition: opacity 0.5s ease;
+}
+
+#loading.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(0, 255, 0, 0.1);
+    border-top: 5px solid #00ff00;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 30px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+#loading p {
+    font-size: 24px;
+    letter-spacing: 2px;
+}
+
+/* Hidden Class */
+.hidden {
+    display: none !important;
+}
