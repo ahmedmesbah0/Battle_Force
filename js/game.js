@@ -989,6 +989,8 @@ function nextWave() {
 
 function showShop() {
     gameState.shopOpen = true;
+    // Hide wave complete overlay when showing shop
+    document.getElementById('wave-complete').classList.add('hidden');
     document.getElementById('shop-overlay').classList.remove('hidden');
     updateShopUI();
 }
