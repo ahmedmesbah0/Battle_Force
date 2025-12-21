@@ -37,6 +37,27 @@
             <div id="ammo-reserve">120</div>
         </div>
 
+        <!-- Score Display -->
+        <div id="score-container">
+            <div class="score-item">
+                <div class="score-label">SCORE</div>
+                <div id="score-value">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">POINTS</div>
+                <div id="points-value">0</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">HIGH SCORE</div>
+                <div id="highscore-value">0</div>
+            </div>
+        </div>
+
+        <!-- Combo Display -->
+        <div id="combo-display" class="hidden">
+            <span id="combo-value">x1.0</span> COMBO!
+        </div>
+
         <!-- Wave Info -->
         <div id="wave-info">
             <div class="wave-label">WAVE</div>
@@ -50,15 +71,111 @@
             <span id="kill-count">0</span>
         </div>
 
+        <!-- Weapon Selection HUD -->
+        <div id="weapon-hud">
+            <div class="weapon-slot" data-weapon="pistol">
+                <div class="weapon-number">1</div>
+                <div class="weapon-icon">🔫</div>
+                <div class="weapon-name">Pistol</div>
+                <div class="weapon-ammo">12/36</div>
+            </div>
+            <div class="weapon-slot" data-weapon="rifle">
+                <div class="weapon-number">2</div>
+                <div class="weapon-icon">🔫</div>
+                <div class="weapon-name">Rifle</div>
+                <div class="weapon-ammo">30/120</div>
+            </div>
+            <div class="weapon-slot" data-weapon="shotgun">
+                <div class="weapon-number">3</div>
+                <div class="weapon-icon">💥</div>
+                <div class="weapon-name">Shotgun</div>
+                <div class="weapon-ammo">6/24</div>
+            </div>
+            <div class="weapon-slot" data-weapon="sniper">
+                <div class="weapon-number">4</div>
+                <div class="weapon-icon">🎯</div>
+                <div class="weapon-name">Sniper</div>
+                <div class="weapon-ammo">5/20</div>
+            </div>
+        </div>
+
         <!-- Damage Indicator -->
         <div id="damage-indicator"></div>
+
+        <!-- Shop Overlay -->
+        <div id="shop-overlay" class="hidden">
+            <div class="shop-container">
+                <h2>🛒 UPGRADE SHOP</h2>
+                <div class="shop-points">
+                    <span class="points-label">Available Points:</span>
+                    <span id="shop-points">0</span>
+                </div>
+
+                <div class="shop-items">
+                    <div class="shop-item">
+                        <div class="item-icon">❤️</div>
+                        <div class="item-info">
+                            <h3>Health Upgrade</h3>
+                            <p>Increase max health by 25</p>
+                        </div>
+                        <div class="item-cost">100</div>
+                        <button id="buy-health-upgrade" class="buy-btn">BUY</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-icon">💚</div>
+                        <div class="item-info">
+                            <h3>Full Heal</h3>
+                            <p>Restore health to maximum</p>
+                        </div>
+                        <div class="item-cost">50</div>
+                        <button id="buy-heal" class="buy-btn">BUY</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-icon">📦</div>
+                        <div class="item-info">
+                            <h3>Extra Ammo</h3>
+                            <p>Refill ammo for all weapons</p>
+                        </div>
+                        <div class="item-cost">75</div>
+                        <button id="buy-ammo" class="buy-btn">BUY</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-icon">⚡</div>
+                        <div class="item-info">
+                            <h3>Damage Boost</h3>
+                            <p>1.5x damage for 30 seconds</p>
+                        </div>
+                        <div class="item-cost">150</div>
+                        <button id="buy-damage" class="buy-btn">BUY</button>
+                    </div>
+                </div>
+
+                <button id="continue-btn" class="continue-btn">CONTINUE TO NEXT WAVE</button>
+            </div>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="hidden">
+            <div class="pause-container">
+                <h2>⏸️ PAUSED</h2>
+                <button id="resume-btn" class="menu-btn">RESUME</button>
+                <button id="pause-restart-btn" class="menu-btn">RESTART</button>
+            </div>
+        </div>
 
         <!-- Game Over Screen -->
         <div id="gameover-screen" class="hidden">
             <h1>GAME OVER</h1>
+            <div id="new-highscore" class="hidden">
+                <p class="highscore-banner">🏆 NEW HIGH SCORE! 🏆</p>
+            </div>
             <div class="stats">
                 <p>Wave Reached: <span id="final-wave">1</span></p>
                 <p>Total Kills: <span id="final-kills">0</span></p>
+                <p>Final Score: <span id="final-score">0</span></p>
                 <p>Survival Time: <span id="survival-time">0:00</span></p>
             </div>
             <button id="restart-btn">RESTART</button>
@@ -67,7 +184,7 @@
         <!-- Wave Complete -->
         <div id="wave-complete" class="hidden">
             <h2>WAVE COMPLETE!</h2>
-            <p>Next wave in <span id="wave-countdown">5</span>...</p>
+            <p>Next wave in <span id="wave-countdown">3</span>...</p>
         </div>
     </div>
 
@@ -85,6 +202,7 @@
             <p><kbd>Mouse</kbd> - Aim</p>
             <p><kbd>Left Click</kbd> - Shoot</p>
             <p><kbd>R</kbd> - Reload</p>
+            <p><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> - Switch Weapons</p>
             <p><kbd>ESC</kbd> - Pause</p>
         </div>
         <button id="start-btn">START GAME</button>
