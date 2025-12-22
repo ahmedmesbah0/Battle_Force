@@ -10,7 +10,7 @@
 let camera, scene, renderer;
 let player = {
     height: 1.7,
-    speed: 0.15,
+    speed: 0.08,  // Reduced from 0.15 for better control
     yaw: 0,
     pitch: 0,
     health: 100,
@@ -145,12 +145,44 @@ let gameState = {
     paused: false
 };
 
+// Track purchases for exponential pricing
+let shopPurchases = {
+    health_upgrade: 0,
+    heal: 0,
+    ammo: 0,
+    damage: 0
+};
+
+// Object Pools for Performance
+const particlePool = [];
+const PARTICLE_POOL_SIZE = 500;
+const bulletPool = [];
+const BULLET_POOL_SIZE = 100;
+
+// Geometry & Material Cache (Reuse instead of recreating)
+const geometryCache = {};
+const materialCache = {};
+
+// Performance Monitoring
+let performanceStats = {
+    fps: 60,
+    frameTime: 0,
+    drawCalls: 0,
+    triangles: 0,
+    zombieCount: 0
+};
+let lastFrameTime = performance.now();
+
 let zombies = [];
 let obstacles = [];
 let particles = [];
 let raycaster = new THREE.Raycaster();
 let clock = new THREE.Clock();
 let audioContext;
+let textureLoader = new THREE.TextureLoader();
+let zombieTextures = {};
+let audioFiles = {};
+let zombieGroanInterval = null;
 
 const ARENA_SIZE = 50;
 const SPAWN_DISTANCE = 30;
@@ -177,6 +209,13 @@ function init() {
     // Initialize audio
     initAudio();
 
+    // Load zombie textures
+    loadZombieTextures();
+
+    // Initialize performance optimization
+    initObjectPools();
+    initPerformanceMonitor();
+
     createArena();
     createLighting();
     setupControls();
@@ -184,66 +223,156 @@ function init() {
     setTimeout(() => document.getElementById('loading').classList.add('hidden'), 500);
 }
 
-// Audio system
+// Load zombie sprite textures
+function loadZombieTextures() {
+    zombieTextures.NORMAL = textureLoader.load('assets/zombies/zombie_normal.png');
+    zombieTextures.FAST = textureLoader.load('assets/zombies/zombie_fast.png');
+    zombieTextures.TANK = textureLoader.load('assets/zombies/zombie_tank.png');
+    zombieTextures.EXPLODER = textureLoader.load('assets/zombies/zombie_exploder.png');
+}
+
+// Load audio files
+function loadAudioFiles() {
+    audioFiles.pistol = new Audio('Audio/Pistol Sound.mp3');
+    audioFiles.rifle = new Audio('Audio/Auto Assault Rifle.mp3');
+    audioFiles.shotgun = new Audio('Audio/Shotgun Sound.mp3');
+    audioFiles.sniper = new Audio('Audio/Sniper Sound.mp3');
+    audioFiles.damage = new Audio('Audio/Damage Sound.mp3');
+    audioFiles.zombie = new Audio('Audio/Zombie Sound .mp3');
+
+    // Preload all audio
+    Object.values(audioFiles).forEach(audio => {
+        audio.preload = 'auto';
+        audio.volume = 0.5;
+    });
+}
+
+// Enhanced Audio system
 function initAudio() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        loadAudioFiles();
     } catch (e) {
         console.warn('Web Audio API not supported');
     }
 }
 
 function playSound(type) {
-    if (!audioContext) return;
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
     switch (type) {
         case 'shoot':
-            oscillator.frequency.value = currentWeaponKey === 'SHOTGUN' ? 100 :
-                currentWeaponKey === 'SNIPER' ? 150 : 200;
-            oscillator.type = 'square';
-            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.1);
+            playWeaponSound();
             break;
         case 'reload':
-            oscillator.frequency.value = 300;
-            oscillator.type = 'sine';
-            gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
+            playReloadSound();
             break;
         case 'explosion':
-            oscillator.frequency.value = 50;
-            oscillator.type = 'sawtooth';
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
+            playExplosionSound();
             break;
         case 'zombie_death':
-            oscillator.frequency.value = 150;
-            oscillator.type = 'sawtooth';
-            gainNode.gain.setValueAtTime(0.08, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.2);
+            playZombieDeathSound();
             break;
         case 'hit':
-            oscillator.frequency.value = 800;
-            oscillator.type = 'square';
-            gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.05);
+            playHitSound();
             break;
+    }
+}
+
+// Play weapon sound based on current weapon
+function playWeaponSound() {
+    let sound;
+
+    switch (currentWeaponKey) {
+        case 'PISTOL':
+            sound = audioFiles.pistol;
+            break;
+        case 'RIFLE':
+            sound = audioFiles.rifle;
+            break;
+        case 'SHOTGUN':
+            sound = audioFiles.shotgun;
+            break;
+        case 'SNIPER':
+            sound = audioFiles.sniper;
+            break;
+    }
+
+    if (sound) {
+        sound.currentTime = 0; // Reset to start
+        sound.volume = 0.4;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+function playReloadSound() {
+    // Use weapon sound at lower volume for reload
+    if (audioFiles.pistol) {
+        const sound = audioFiles.pistol.cloneNode();
+        sound.volume = 0.2;
+        sound.playbackRate = 0.8;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+function playExplosionSound() {
+    // Use shotgun sound for explosion (deep boom)
+    if (audioFiles.shotgun) {
+        const sound = audioFiles.shotgun.cloneNode();
+        sound.volume = 0.6;
+        sound.playbackRate = 0.6;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+function playZombieDeathSound() {
+    if (audioFiles.zombie) {
+        const sound = audioFiles.zombie.cloneNode();
+        sound.volume = 0.3;
+        sound.playbackRate = 1.2;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+function playHitSound() {
+    if (audioFiles.pistol) {
+        const sound = audioFiles.pistol.cloneNode();
+        sound.volume = 0.15;
+        sound.playbackRate = 2.0;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+// Play zombie groan with 3D positional audio
+function playZombieGroan(zombie) {
+    if (!audioFiles.zombie) return;
+
+    const distance = zombie.position.distanceTo(player.position);
+    const maxDistance = 20; // Hear zombies within 20 units
+
+    if (distance > maxDistance) return;
+
+    // Volume based on distance (closer = louder)
+    const volume = Math.max(0, 1 - (distance / maxDistance)) * 0.25;
+
+    const sound = audioFiles.zombie.cloneNode();
+    sound.volume = volume;
+    sound.playbackRate = 0.8 + Math.random() * 0.4; // Vary pitch
+    sound.play().catch(e => console.warn('Audio play failed:', e));
+}
+
+function playDamageSound() {
+    if (audioFiles.damage) {
+        const sound = audioFiles.damage.cloneNode();
+        sound.volume = 0.5;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
+    }
+}
+
+function playZombieAttackSound() {
+    if (audioFiles.zombie) {
+        const sound = audioFiles.zombie.cloneNode();
+        sound.volume = 0.4;
+        sound.playbackRate = 1.5;
+        sound.play().catch(e => console.warn('Audio play failed:', e));
     }
 }
 
@@ -468,38 +597,8 @@ function createZombie(position, typeKey = null) {
     const zombieType = ZOMBIE_TYPES[typeKey];
     const zombie = new THREE.Group();
 
-    const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.4 * zombieType.scale, 0.3 * zombieType.scale, 1.5 * zombieType.scale, 8),
-        new THREE.MeshPhongMaterial({
-            color: zombieType.color,
-            emissive: zombieType.emissive,
-            emissiveIntensity: 0.2
-        })
-    );
-    body.position.y = 0.75 * zombieType.scale;
-    body.castShadow = true;
-    zombie.add(body);
-
-    const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.35 * zombieType.scale, 8, 8),
-        new THREE.MeshPhongMaterial({
-            color: zombieType.color,
-            emissive: zombieType.emissive,
-            emissiveIntensity: 0.3
-        })
-    );
-    head.position.y = 1.8 * zombieType.scale;
-    head.castShadow = true;
-    head.userData.isHead = true;
-    zombie.add(head);
-
-    const eyeColor = typeKey === 'EXPLODER' ? 0xff6600 : 0xff0000;
-    const eyeMaterial = new THREE.MeshBasicMaterial({ color: eyeColor, emissive: eyeColor });
-    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.08 * zombieType.scale, 6, 6), eyeMaterial);
-    leftEye.position.set(-0.15 * zombieType.scale, 1.9 * zombieType.scale, 0.3 * zombieType.scale);
-    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.08 * zombieType.scale, 6, 6), eyeMaterial);
-    rightEye.position.set(0.15 * zombieType.scale, 1.9 * zombieType.scale, 0.3 * zombieType.scale);
-    zombie.add(leftEye, rightEye);
+    // Create professional 3D zombie model
+    create3DZombieModel(zombie, zombieType, typeKey);
 
     zombie.position.copy(position);
     zombie.userData = {
@@ -512,11 +611,259 @@ function createZombie(position, typeKey = null) {
         points: zombieType.points,
         attackRate: zombieType.attackRate,
         lastAttack: 0,
+        lastGroan: 0,
         movePattern: 0
     };
 
     scene.add(zombie);
     zombies.push(zombie);
+}
+
+// Create detailed 3D zombie model
+function create3DZombieModel(zombie, zombieType, typeKey) {
+    const scale = zombieType.scale;
+
+    // Create procedural skin texture
+    const skinTexture = createSkinTexture(zombieType.color);
+
+    // Advanced material with realistic properties
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        map: skinTexture,
+        color: zombieType.color,
+        emissive: zombieType.emissive,
+        emissiveIntensity: 0.15,
+        roughness: 0.9,
+        metalness: 0.1
+    });
+
+    // HEAD - More detailed with facial features
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.4 * scale, 16, 16),
+        bodyMaterial.clone()
+    );
+    head.position.y = 1.9 * scale;
+    head.scale.set(1, 1.1, 0.9); // Slightly elongated
+    head.castShadow = true;
+    head.userData.isHead = true;
+    zombie.add(head);
+
+    // JAW - for more realistic head
+    const jaw = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3 * scale, 0.15 * scale, 0.25 * scale),
+        bodyMaterial.clone()
+    );
+    jaw.position.set(0, 1.65 * scale, 0.1 * scale);
+    jaw.castShadow = true;
+    zombie.add(jaw);
+
+    // EYES - Glowing effect
+    const eyeColor = typeKey === 'EXPLODER' ? 0xff6600 : 0xff0000;
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+        color: eyeColor,
+        emissive: eyeColor,
+        emissiveIntensity: 1.0,
+        roughness: 0.3,
+        metalness: 0.7
+    });
+
+    const leftEye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1 * scale, 8, 8),
+        eyeMaterial
+    );
+    leftEye.position.set(-0.15 * scale, 1.95 * scale, 0.32 * scale);
+    zombie.add(leftEye);
+
+    const rightEye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1 * scale, 8, 8),
+        eyeMaterial.clone()
+    );
+    rightEye.position.set(0.15 * scale, 1.95 * scale, 0.32 * scale);
+    zombie.add(rightEye);
+
+    // TORSO - Different shapes for different types
+    let torsoGeometry;
+    if (typeKey === 'TANK') {
+        // Bulky, muscular torso
+        torsoGeometry = new THREE.BoxGeometry(0.7 * scale, 0.9 * scale, 0.5 * scale);
+    } else if (typeKey === 'FAST') {
+        // Thin, agile torso
+        torsoGeometry = new THREE.CylinderGeometry(0.25 * scale, 0.3 * scale, 0.9 * scale, 8);
+    } else if (typeKey === 'EXPLODER') {
+        // Bloated torso
+        torsoGeometry = new THREE.SphereGeometry(0.5 * scale, 12, 12);
+    } else {
+        // Normal torso
+        torsoGeometry = new THREE.CylinderGeometry(0.35 * scale, 0.4 * scale, 0.9 * scale, 12);
+    }
+
+    const torso = new THREE.Mesh(torsoGeometry, bodyMaterial.clone());
+    torso.position.y = 1.2 * scale;
+    torso.castShadow = true;
+    zombie.add(torso);
+
+    // NECK
+    const neck = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15 * scale, 0.18 * scale, 0.25 * scale, 8),
+        bodyMaterial.clone()
+    );
+    neck.position.y = 1.7 * scale;
+    neck.castShadow = true;
+    zombie.add(neck);
+
+    // ARMS - Left and Right
+    const armLength = typeKey === 'TANK' ? 0.7 * scale : 0.6 * scale;
+    const armWidth = typeKey === 'TANK' ? 0.15 * scale : 0.12 * scale;
+
+    // Left Arm
+    const leftUpperArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(armWidth, armWidth * 0.8, armLength, 8),
+        bodyMaterial.clone()
+    );
+    leftUpperArm.position.set(-0.45 * scale, 1.3 * scale, 0);
+    leftUpperArm.rotation.z = 0.3;
+    leftUpperArm.castShadow = true;
+    zombie.add(leftUpperArm);
+
+    const leftHand = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12 * scale, 8, 8),
+        bodyMaterial.clone()
+    );
+    leftHand.position.set(-0.65 * scale, 0.9 * scale, 0.1 * scale);
+    leftHand.castShadow = true;
+    zombie.add(leftHand);
+
+    // Right Arm
+    const rightUpperArm = new THREE.Mesh(
+        new THREE.CylinderGeometry(armWidth, armWidth * 0.8, armLength, 8),
+        bodyMaterial.clone()
+    );
+    rightUpperArm.position.set(0.45 * scale, 1.3 * scale, 0);
+    rightUpperArm.rotation.z = -0.3;
+    rightUpperArm.castShadow = true;
+    zombie.add(rightUpperArm);
+
+    const rightHand = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12 * scale, 8, 8),
+        bodyMaterial.clone()
+    );
+    rightHand.position.set(0.65 * scale, 0.9 * scale, 0.1 * scale);
+    rightHand.castShadow = true;
+    zombie.add(rightHand);
+
+    // LEGS - Left and Right
+    const legLength = 0.8 * scale;
+    const legWidth = typeKey === 'TANK' ? 0.18 * scale : 0.14 * scale;
+
+    // Left Leg
+    const leftThigh = new THREE.Mesh(
+        new THREE.CylinderGeometry(legWidth, legWidth * 0.9, legLength * 0.6, 8),
+        bodyMaterial.clone()
+    );
+    leftThigh.position.set(-0.15 * scale, 0.5 * scale, 0);
+    leftThigh.castShadow = true;
+    zombie.add(leftThigh);
+
+    const leftShin = new THREE.Mesh(
+        new THREE.CylinderGeometry(legWidth * 0.8, legWidth * 0.7, legLength * 0.5, 8),
+        bodyMaterial.clone()
+    );
+    leftShin.position.set(-0.15 * scale, 0.15 * scale, 0);
+    leftShin.castShadow = true;
+    zombie.add(leftShin);
+
+    const leftFoot = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15 * scale, 0.08 * scale, 0.25 * scale),
+        bodyMaterial.clone()
+    );
+    leftFoot.position.set(-0.15 * scale, 0.05 * scale, 0.08 * scale);
+    leftFoot.castShadow = true;
+    zombie.add(leftFoot);
+
+    // Right Leg
+    const rightThigh = new THREE.Mesh(
+        new THREE.CylinderGeometry(legWidth, legWidth * 0.9, legLength * 0.6, 8),
+        bodyMaterial.clone()
+    );
+    rightThigh.position.set(0.15 * scale, 0.5 * scale, 0);
+    rightThigh.castShadow = true;
+    zombie.add(rightThigh);
+
+    const rightShin = new THREE.Mesh(
+        new THREE.CylinderGeometry(legWidth * 0.8, legWidth * 0.7, legLength * 0.5, 8),
+        bodyMaterial.clone()
+    );
+    rightShin.position.set(0.15 * scale, 0.15 * scale, 0);
+    rightShin.castShadow = true;
+    zombie.add(rightShin);
+
+    const rightFoot = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15 * scale, 0.08 * scale, 0.25 * scale),
+        bodyMaterial.clone()
+    );
+    rightFoot.position.set(0.15 * scale, 0.05 * scale, 0.08 * scale);
+    rightFoot.castShadow = true;
+    zombie.add(rightFoot);
+
+    // Special effects for EXPLODER type
+    if (typeKey === 'EXPLODER') {
+        // Add pustules/growths
+        for (let i = 0; i < 5; i++) {
+            const pustule = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08 * scale, 6, 6),
+                new THREE.MeshStandardMaterial({
+                    color: 0xff8800,
+                    emissive: 0xff6600,
+                    emissiveIntensity: 0.4,
+                    roughness: 0.7
+                })
+            );
+            pustule.position.set(
+                (Math.random() - 0.5) * 0.4 * scale,
+                1.0 * scale + Math.random() * 0.5 * scale,
+                (Math.random() - 0.5) * 0.3 * scale
+            );
+            zombie.add(pustule);
+        }
+    }
+}
+
+// Create procedural skin texture
+function createSkinTexture(baseColor) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Base color
+    const color = new THREE.Color(baseColor);
+    ctx.fillStyle = `rgb(${color.r * 255}, ${color.g * 255}, ${color.b * 255})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add noise/texture
+    for (let i = 0; i < 5000; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const variation = Math.random() * 40 - 20;
+        ctx.fillStyle = `rgb(${color.r * 255 + variation}, ${color.g * 255 + variation}, ${color.b * 255 + variation})`;
+        ctx.fillRect(x, y, 2, 2);
+    }
+
+    // Add darker patches (wounds/decay)
+    for (let i = 0; i < 10; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = 10 + Math.random() * 20;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, `rgba(${color.r * 180}, ${color.g * 180}, ${color.b * 180}, 0.5)`);
+        gradient.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
 }
 
 function spawnWave() {
@@ -539,11 +886,19 @@ function spawnWave() {
 }
 
 function updateZombies(delta) {
+    const now = Date.now();
+
     for (let i = zombies.length - 1; i >= 0; i--) {
         const zombie = zombies[i];
         const zombieType = ZOMBIE_TYPES[zombie.userData.zombieType];
         const direction = new THREE.Vector3().subVectors(player.position, zombie.position).normalize();
         direction.y = 0;
+
+        // Zombie groaning sounds (periodic, proximity-based)
+        if (now - zombie.userData.lastGroan > 3000 + Math.random() * 2000) {
+            playZombieGroan(zombie);
+            zombie.userData.lastGroan = now;
+        }
 
         // Type-specific movement
         if (zombie.userData.zombieType === 'FAST') {
@@ -561,9 +916,22 @@ function updateZombies(delta) {
             }
         }
 
-        // Move zombie (no obstacle collision - they pass through)
-        const moveVector = direction.clone().multiplyScalar(zombie.userData.speed);
-        zombie.position.add(moveVector);
+        // Move zombie with minimum distance check
+        const zombieDist = zombie.position.distanceTo(player.position);
+        const MIN_DISTANCE = 1.5; // Prevent getting stuck in player
+
+        if (zombieDist > MIN_DISTANCE) {
+            const moveVector = direction.clone().multiplyScalar(zombie.userData.speed);
+            zombie.position.add(moveVector);
+
+            // Don't let zombie get too close
+            const newDistance = zombie.position.distanceTo(player.position);
+            if (newDistance < MIN_DISTANCE) {
+                // Push zombie back to minimum distance
+                const pushBack = direction.clone().multiplyScalar(-(MIN_DISTANCE - newDistance));
+                zombie.position.add(pushBack);
+            }
+        }
 
         zombie.lookAt(player.position);
         zombie.position.y = Math.sin(Date.now() * 0.005 + i) * 0.1;
@@ -580,8 +948,8 @@ function updateZombies(delta) {
             zombie.scale.setScalar(pulse);
         }
 
-        const distance = zombie.position.distanceTo(player.position);
-        if (distance < 2 && zombie.userData.zombieType !== 'EXPLODER') {
+        const attackDistance = zombie.position.distanceTo(player.position);
+        if (attackDistance < 2 && zombie.userData.zombieType !== 'EXPLODER') {
             attackPlayer(zombie);
         }
 
@@ -630,14 +998,23 @@ function explodeZombie(zombie) {
 
     const index = zombies.indexOf(zombie);
     if (index !== -1) {
-        scene.remove(zombie);
-        zombies.splice(index, 1);
-        gameState.zombiesKilled++;
-
-        // Award points even for exploder
+        // Award points for explosion
         gameState.score += zombie.userData.points;
         gameState.points += zombie.userData.points;
         gameState.kills++;
+        gameState.zombiesKilled++;
+
+        // Convert exploder to normal zombie instead of killing it
+        zombie.userData.zombieType = 'NORMAL';
+        zombie.userData.health = ZOMBIE_TYPES.NORMAL.health;
+        zombie.userData.maxHealth = ZOMBIE_TYPES.NORMAL.health;
+        zombie.userData.speed = ZOMBIE_TYPES.NORMAL.speed;
+        zombie.userData.damage = ZOMBIE_TYPES.NORMAL.damage;
+        zombie.userData.points = ZOMBIE_TYPES.NORMAL.points;
+
+        // Rebuild zombie with normal appearance
+        zombie.children.forEach(child => zombie.remove(child));
+        create3DZombieModel(zombie, ZOMBIE_TYPES.NORMAL, 'NORMAL');
 
         updateUI();
 
@@ -728,6 +1105,7 @@ function damageObstacle(obstacle, damage) {
 function attackPlayer(zombie) {
     const now = Date.now();
     if (!zombie.userData.lastAttack || now - zombie.userData.lastAttack > zombie.userData.attackRate) {
+        playZombieAttackSound();
         damagePlayer(zombie.userData.damage);
         zombie.userData.lastAttack = now;
     }
@@ -955,6 +1333,8 @@ function damagePlayer(damage) {
     player.health -= damage;
     player.health = Math.max(0, player.health);
 
+    playDamageSound();
+
     const indicator = document.getElementById('damage-indicator');
     indicator.classList.add('active');
     setTimeout(() => indicator.classList.remove('active'), 200);
@@ -1015,16 +1395,49 @@ function hideShop() {
 }
 
 function updateShopUI() {
+    // Calculate prices based on purchase counts (doubles each time)
+
+    // Update displayed prices in shop
+    const basePrices = {
+        'buy-health-upgrade': 100,
+        'buy-heal': 50,
+        'buy-ammo': 75,
+        'buy-damage': 150
+    };
+
+    Object.keys(basePrices).forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            const shopItem = button.closest('.shop-item');
+            const costElement = shopItem.querySelector('.item-cost');
+            if (costElement) {
+                const itemKey = itemKeys[buttonId];
+                const purchaseCount = shopPurchases[itemKey];
+                // Price doubles each purchase
+                const scaledPrice = Math.floor(basePrices[buttonId] * Math.pow(2, purchaseCount));
+                costElement.textContent = scaledPrice;
+            }
+        }
+    });
+
     document.getElementById('shop-points').textContent = gameState.points;
 }
 
 function buyItem(item) {
-    let cost = 0;
+    const basePrices = {
+        health_upgrade: 100,
+        heal: 50,
+        ammo: 75,
+        damage: 150
+    };
+
+    // Price doubles each purchase
+    const purchaseCount = shopPurchases[item] || 0;
+    const cost = Math.floor(basePrices[item] * Math.pow(2, purchaseCount));
     let canBuy = false;
 
     switch (item) {
         case 'health_upgrade':
-            cost = 100;
             if (gameState.points >= cost) {
                 player.maxHealth += 25;
                 player.health = Math.min(player.health + 25, player.maxHealth);
@@ -1032,14 +1445,12 @@ function buyItem(item) {
             }
             break;
         case 'heal':
-            cost = 50;
             if (gameState.points >= cost && player.health < player.maxHealth) {
                 player.health = player.maxHealth;
                 canBuy = true;
             }
             break;
         case 'ammo':
-            cost = 75;
             if (gameState.points >= cost) {
                 Object.keys(weaponStates).forEach(key => {
                     weaponStates[key].reserveAmmo += WEAPONS[key].magSize * 2;
@@ -1048,7 +1459,6 @@ function buyItem(item) {
             }
             break;
         case 'damage':
-            cost = 150;
             if (gameState.points >= cost) {
                 player.damageBoost = 1.5;
                 player.damageBoostExpiry = Date.now() + 30000; // 30 seconds
@@ -1059,6 +1469,7 @@ function buyItem(item) {
 
     if (canBuy) {
         gameState.points -= cost;
+        shopPurchases[item]++;
         updateShopUI();
         updateUI();
     }
